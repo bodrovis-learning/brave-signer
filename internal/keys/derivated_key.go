@@ -9,6 +9,8 @@ import (
 	"golang.org/x/term"
 )
 
+const maxPassphraseLen = 1024
+
 func DeriveKey(cryptoConfig KeyEncryptionConfig, salt []byte) ([]byte, error) {
 	if len(salt) == 0 {
 		return nil, fmt.Errorf("salt cannot be empty")
@@ -23,7 +25,13 @@ func DeriveKey(cryptoConfig KeyEncryptionConfig, salt []byte) ([]byte, error) {
 		return nil, fmt.Errorf("passphrase cannot be empty")
 	}
 
-	return argon2.IDKey(passphrase, salt, cryptoConfig.Argon2Time, cryptoConfig.Argon2Memory*1024, cryptoConfig.Argon2Threads, cryptoConfig.Argon2KeyLen), nil
+	key := argon2.IDKey(passphrase, salt, cryptoConfig.Argon2Time, cryptoConfig.Argon2Memory*1024, cryptoConfig.Argon2Threads, cryptoConfig.Argon2KeyLen)
+
+	for i := range passphrase {
+		passphrase[i] = 0
+	}
+
+	return key, nil
 }
 
 func getPassphrase() (passphrase []byte, err error) {
@@ -42,6 +50,10 @@ func getPassphrase() (passphrase []byte, err error) {
 	passphrase, err = term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read passphrase: %v", err)
+	}
+
+	if len(passphrase) > maxPassphraseLen {
+		return nil, fmt.Errorf("passphrase too long (max %d bytes)", maxPassphraseLen)
 	}
 
 	return passphrase, nil

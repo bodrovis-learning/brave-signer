@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -10,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"golang.org/x/crypto/chacha20poly1305"
 
 	"brave_signer/internal/logger"
 )
@@ -55,6 +56,7 @@ func (k *PrivateKey) SealWithPassphrase(cryptoConfig KeyEncryptionConfig) error 
 			"Nonce":                   base64.StdEncoding.EncodeToString(nonce),
 			"Salt":                    base64.StdEncoding.EncodeToString(salt),
 			"Key-Derivation-Function": "Argon2",
+			"Cipher":                  "XChaCha20-Poly1305",
 		},
 	}
 
@@ -186,17 +188,11 @@ func generateNonce(crypter cipher.AEAD) ([]byte, error) {
 }
 
 func generateCrypter(key []byte) (cipher.AEAD, error) {
-	block, err := aes.NewCipher(key)
+	aead, err := chacha20poly1305.NewX(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher block: %v", err)
+		return nil, fmt.Errorf("failed to create XChaCha20-Poly1305 cipher: %v", err)
 	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM cipher: %v", err)
-	}
-
-	return gcm, nil
+	return aead, nil
 }
 
 func zeroize(b []byte) {

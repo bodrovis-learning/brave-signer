@@ -18,13 +18,13 @@ Available commands:
 
 - `keys generate [--pub-key-path pub_key.pem] [--priv-key-path priv_key.pem]`  
   Generate an Ed25519 key pair.  
-  The private key is encrypted with AES using a passphrase you enter, derived securely via Argon2.
+  The private key is encrypted with XChaCha20Poly1305 using a passphrase you enter, derived securely via Argon2.
 
-- `signatures signfile --file PATH_TO_FILE --signer-id SIGNER_NAME_OR_ID [--priv-key-path priv_key.pem]`  
+- `signatures signfile --file-path PATH_TO_FILE --signer-id SIGNER_NAME_OR_ID [--priv-key-path priv_key.pem]`  
   Sign a file using your private key.  
   A `.sig` file will be created next to the original file, containing the signature and signer ID (up to 65,535 characters).
 
-- `signatures verifyfile --file PATH_TO_FILE [--pub-key-path pub_key.pem]`  
+- `signatures verifyfile --file-path PATH_TO_FILE [--pub-key-path pub_key.pem]`  
   Verify a file against its `.sig` using an Ed25519 public key.  
   The `.sig` file should be named `<filename>.sig` and stored alongside the original.
 
