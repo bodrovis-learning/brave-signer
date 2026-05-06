@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"brave_signer/cmd/keys"
-	"brave_signer/cmd/signatures"
-	"brave_signer/internal/config"
+	"brave-signer/cmd/keys"
+	"brave-signer/cmd/signatures"
+	"brave-signer/internal/config"
 
 	"github.com/spf13/cobra"
 )

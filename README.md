@@ -4,14 +4,14 @@
 
 BraveSigner is a Go-powered CLI tool that lets you generate cryptographic key pairs, sign files, and verify digital signatures using [Ed25519](https://ed25519.cr.yp.to/). It prioritizes strong encryption practices, ease of use, and flexibility.
 
-**[Full command reference in `/docs/brave_signer.md`](./docs/brave_signer.md)**
+**[Full command reference in `/docs/brave-signer.md`](./docs/brave-signer.md)**
 
 ---
 
 ## Usage
 
 ```
-brave_signer COMMAND FLAGS
+brave-signer COMMAND FLAGS
 ```
 
 Available commands:
@@ -55,10 +55,10 @@ All parameters can also be provided via environment variables. This is useful in
 Environment variables follow this format:
 
 ```
-BRAVE_SIGNER_<PARAMETER_NAME>
+brave-signer_<PARAMETER_NAME>
 ```
 
-Hyphens (-) in parameter names are replaced with underscores (_). For example `--file-path` can be set with `BRAVE_SIGNER_FILE_PATH`.
+Hyphens (-) in parameter names are replaced with underscores (_). For example `--file-path` can be set with `brave-signer_FILE_PATH`.
 
 ### Precedence order
 

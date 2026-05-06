@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"brave_signer/internal/logger"
+	"brave-signer/internal/logger"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -28,7 +28,7 @@ var GlobalCfg GlobalConfig
 func LoadConfig(cmd *cobra.Command) error {
 	v := viper.New()
 
-	v.SetEnvPrefix("BRAVE_SIGNER")
+	v.SetEnvPrefix("brave-signer")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
 

@@ -1,6 +1,6 @@
 version: 2
 
-project_name: brave_signer
+project_name: brave-signer
 
 before:
   hooks:
@@ -18,9 +18,9 @@ builds:
     ldflags:
       - >-
         -s -w
-        -X brave_signer/cmd.version={{ .Version }}
-        -X brave_signer/cmd.commit={{ .Commit }}
-        -X brave_signer/cmd.date={{ .CommitDate }}
+        -X brave-signer/cmd.version={{ .Version }}
+        -X brave-signer/cmd.commit={{ .Commit }}
+        -X brave-signer/cmd.date={{ .CommitDate }}
     mod_timestamp: "{{ .CommitTimestamp }}"
     goos:
       - linux
@@ -53,9 +53,9 @@ builds:
     ldflags:
       - >-
         -s -w
-        -X brave_signer/cmd.version={{ .Version }}
-        -X brave_signer/cmd.commit={{ .Commit }}
-        -X brave_signer/cmd.date={{ .CommitDate }}
+        -X brave-signer/cmd.version={{ .Version }}
+        -X brave-signer/cmd.commit={{ .Commit }}
+        -X brave-signer/cmd.date={{ .CommitDate }}
     mod_timestamp: "{{ .CommitTimestamp }}"
     goos:
       - js

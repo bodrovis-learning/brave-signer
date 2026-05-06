@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"brave_signer/internal/config"
-	internalkeys "brave_signer/internal/keys"
-	"brave_signer/internal/logger"
+	"brave-signer/internal/config"
+	internalkeys "brave-signer/internal/keys"
+	"brave-signer/internal/logger"
 
 	"github.com/spf13/cobra"
 )

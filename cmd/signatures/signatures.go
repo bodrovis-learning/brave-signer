@@ -3,7 +3,7 @@ package signatures
 import (
 	"fmt"
 
-	"brave_signer/internal/hashers"
+	"brave-signer/internal/hashers"
 
 	"github.com/spf13/cobra"
 )

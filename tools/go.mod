@@ -1,3 +1,3 @@
-module brave_signer/tools
+module brave-signer/tools
 
 go 1.24

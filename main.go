@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"brave_signer/cmd"
-	"brave_signer/internal/logger"
+	"brave-signer/cmd"
+	"brave-signer/internal/logger"
 )
 
 func main() {

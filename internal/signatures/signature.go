@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"brave_signer/internal/keys"
+	"brave-signer/internal/keys"
 )
 
 const signerInfoLengthSize = 4
