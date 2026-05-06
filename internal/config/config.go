@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -23,19 +24,18 @@ var Conf *viper.Viper
 // GlobalCfg is the parsed, typed global configuration.
 var GlobalCfg GlobalConfig
 
-// LoadConfig loads configuration from the CLI flags and an optional YAML file.
-// CLI args take precedence over file settings.
+// LoadConfig loads configuration from CLI flags, env vars, and an optional config file.
 func LoadConfig(cmd *cobra.Command) error {
 	v := viper.New()
 
-	// Allow ENV vars like BRAVE_SIGNER_CONFIG_PATH
 	v.SetEnvPrefix("BRAVE_SIGNER")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
 
 	rootCmd := cmd.Root()
-	if err := v.BindPFlags(rootCmd.PersistentFlags()); err != nil {
-		return fmt.Errorf("failed to bind root persistent flags: %w", err)
+
+	if err := bindRootFlags(v, rootCmd); err != nil {
+		return err
 	}
 
 	configFileName := v.GetString("config-file-name")
@@ -47,18 +47,66 @@ func LoadConfig(cmd *cobra.Command) error {
 	v.AddConfigPath(configPath)
 
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			logger.Info("Config file not found, using CLI values and defaults.")
+		var notFound viper.ConfigFileNotFoundError
+		if errors.As(err, &notFound) {
+			logger.Info("Config file not found, using CLI values, env vars, and defaults.")
 		} else {
-			return fmt.Errorf("error reading config file: %w", err)
+			return fmt.Errorf("read config file: %w", err)
 		}
 	}
 
-	if err := v.Unmarshal(&GlobalCfg); err != nil {
-		return fmt.Errorf("failed to unmarshal global config: %w", err)
+	if err := bindCommandFlags(v, cmd); err != nil {
+		return err
+	}
+
+	if err := UnmarshalWith(v, &GlobalCfg); err != nil {
+		return fmt.Errorf("unmarshal global config: %w", err)
 	}
 
 	Conf = v
+
+	return nil
+}
+
+// Unmarshal unmarshals the loaded config into target.
+func Unmarshal(target any) error {
+	if Conf == nil {
+		return errors.New("config is not loaded")
+	}
+
+	if err := UnmarshalWith(Conf, target); err != nil {
+		return fmt.Errorf("unmarshal config: %w", err)
+	}
+
+	return nil
+}
+
+func UnmarshalWith(v *viper.Viper, target any) error {
+	if err := v.Unmarshal(target); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func bindRootFlags(v *viper.Viper, rootCmd *cobra.Command) error {
+	if err := v.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		return fmt.Errorf("bind root persistent flags: %w", err)
+	}
+
+	return nil
+}
+
+func bindCommandFlags(v *viper.Viper, cmd *cobra.Command) error {
+	for currentCmd := cmd; currentCmd != nil; currentCmd = currentCmd.Parent() {
+		if err := v.BindPFlags(currentCmd.PersistentFlags()); err != nil {
+			return fmt.Errorf("bind persistent flags for %q: %w", currentCmd.Name(), err)
+		}
+
+		if err := v.BindPFlags(currentCmd.LocalFlags()); err != nil {
+			return fmt.Errorf("bind local flags for %q: %w", currentCmd.Name(), err)
+		}
+	}
 
 	return nil
 }

@@ -1,57 +1,132 @@
 version: 2
 
+project_name: brave_signer
+
 before:
   hooks:
     - go mod tidy
+    - go mod verify
 
 builds:
-  - env:
+  - id: cli
+    main: .
+    binary: brave-signer
+    env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X brave_signer/cmd.version={{ .Version }}
+        -X brave_signer/cmd.commit={{ .Commit }}
+        -X brave_signer/cmd.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
     goos:
-      - darwin
-      - windows
       - linux
+      - windows
+      - darwin
       - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - "386"
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
+
+  - id: wasm
+    main: .
+    binary: brave-signer.wasm
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X brave_signer/cmd.version={{ .Version }}
+        -X brave_signer/cmd.commit={{ .Commit }}
+        -X brave_signer/cmd.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos:
       - js
     goarch:
-      - 386
-      - amd64
-      - arm
-      - arm64
       - wasm
-    goarm:
-      - 6
-      - 7
-    ldflags:
-      - "-s -w -X 'brave_signer/cmd.version={{.Version}}'"
 
 upx:
-  - # Whether to enable it or not.
-    #
-    # Templates: allowed.
+  - ids:
+      - cli
     enabled: true
     compress: best
     lzma: true
-    brute: true
-    goos: [linux, darwin, windows]
+    brute: false
+    goos:
+      - linux
+      - windows
 
 archives:
-  - formats: [ 'tar.gz' ]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
+  - id: cli
+    ids:
+      - cli
+    formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}_
+      {{- .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
+    files:
+      - README*
+      - LICENSE*
     format_overrides:
       - goos: windows
-        formats: [ 'zip' ]
-    # Exclude wasm from archiving, as it does not require a standard binary archive
-    # exclude:
-    #   - js/wasm
+        formats:
+          - zip
+
+  - id: wasm
+    ids:
+      - wasm
+    formats:
+      - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_wasm"
+    files:
+      - README*
+      - LICENSE*
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - id: checksums
+    cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    artifacts: checksum
+    args:
+      - sign-blob
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+
+release:
+  draft: false
+  prerelease: auto
+  mode: replace
 
 changelog:
   sort: asc

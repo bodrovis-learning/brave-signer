@@ -1,49 +1,87 @@
 package signatures
 
 import (
-	"brave_signer/internal/config"
+	"fmt"
+
 	"brave_signer/internal/hashers"
-	"brave_signer/internal/logger"
 
 	"github.com/spf13/cobra"
 )
 
-// SignatureConfig holds the command-specific configuration for signature operations.
+// SignatureConfig holds shared configuration for signature commands.
 type SignatureConfig struct {
 	FilePath string `mapstructure:"file-path"`
 	HashAlgo string `mapstructure:"hash-algo"`
 }
 
-// signaturesCmd represents the base command for signing operations.
-var signaturesCmd = &cobra.Command{
-	Use:   "signatures",
-	Short: "Create and verify signatures.",
-	Long: `The signatures command provides subcommands to create and verify digital signatures.
+func newSignaturesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "signatures",
+		Short: "Create and verify signatures.",
+		Long: `Create and verify digital signatures.
 
-Features:
-- Securely sign files to ensure their authenticity and integrity.
-- Verify signatures to confirm the origin and integrity of files.
-`,
-	// For now, simply unmarshal the config and show it.
-	Run: func(cmd *cobra.Command, args []string) {
-		// Bind the persistent flags for this command to the global Viper instance.
-		if err := config.Conf.BindPFlags(cmd.PersistentFlags()); err != nil {
-			logger.HaltOnErr(err, "failed to bind signatures flags")
-		}
-		var sigCfg SignatureConfig
-		if err := config.Conf.Unmarshal(&sigCfg); err != nil {
-			logger.HaltOnErr(err, "failed to unmarshal signatures config")
-		}
+Available subcommands:
+- signfile: Create a signature for a file.
+- verifyfile: Verify a file signature.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
 
-		_ = cmd.Help()
-	},
+	addFlags(cmd)
+
+	cmd.AddCommand(newSignFileCmd())
+	cmd.AddCommand(newVerifyFileCmd())
+
+	return cmd
 }
 
 // Init initializes the signatures command and sets up its flags.
-func Init(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(signaturesCmd)
+func Init(rootCmd *cobra.Command, withConfig func(*cobra.Command)) {
+	cmd := newSignaturesCmd()
 
-	// Setup persistent flags for signatures.
-	signaturesCmd.PersistentFlags().String("file-path", "", "Path to the file that should be signed or verified")
-	signaturesCmd.PersistentFlags().String("hash-algo", hashers.DefaultHasherName, "Hashing algorithm to use for signing and verification")
+	withConfig(cmd)
+
+	rootCmd.AddCommand(cmd)
+}
+
+func addFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().String(
+		"file-path",
+		"",
+		"Path to the file that should be signed or verified.",
+	)
+
+	cmd.PersistentFlags().String(
+		"hash-algo",
+		hashers.DefaultHasherName,
+		"Hashing algorithm to use for signing and verification.",
+	)
+}
+
+func validateSignatureConfig(cfg SignatureConfig) error {
+	if cfg.FilePath == "" {
+		return fmt.Errorf("file path is required")
+	}
+
+	if cfg.HashAlgo == "" {
+		return fmt.Errorf("hash algorithm is required")
+	}
+
+	return nil
+}
+
+func hashFile(filePath string, hashAlgo string) (*hashers.Hasher, []byte, error) {
+	hasher, err := hashers.New(hashAlgo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create hasher: %w", err)
+	}
+
+	digest, err := hasher.HashFile(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("hash file: %w", err)
+	}
+
+	return hasher, digest, nil
 }

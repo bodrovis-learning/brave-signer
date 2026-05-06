@@ -8,9 +8,17 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		logger.HaltOnErr(err, "command failed")
+	}
+}
+
+func run() error {
 	rootCmd := cmd.RootCmd()
 
 	if err := rootCmd.Execute(); err != nil {
-		logger.HaltOnErr(fmt.Errorf("command failed: %v", err), "initial setup failed")
+		return fmt.Errorf("execute root command: %w", err)
 	}
+
+	return nil
 }

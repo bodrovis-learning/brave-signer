@@ -1,8 +1,6 @@
 package keys
 
-import (
-	"brave_signer/internal/config"
-)
+import "fmt"
 
 type KeyEncryptionConfig struct {
 	SaltSize      int    `mapstructure:"salt-size"`
@@ -12,12 +10,30 @@ type KeyEncryptionConfig struct {
 	Argon2KeyLen  uint32 `mapstructure:"argon2-key-len"`
 }
 
-func BuildCryptoConfigFromFlags() KeyEncryptionConfig {
-	return KeyEncryptionConfig{
-		SaltSize:      config.Conf.GetInt("crypto.salt-size"),
-		Argon2Time:    config.Conf.GetUint32("crypto.argon2-time"),
-		Argon2Memory:  config.Conf.GetUint32("crypto.argon2-memory"),
-		Argon2Threads: config.Conf.GetUint8("crypto.argon2-threads"),
-		Argon2KeyLen:  config.Conf.GetUint32("crypto.argon2-key-len"),
+func (cfg KeyEncryptionConfig) ValidateForEncryption() error {
+	if cfg.SaltSize < 16 {
+		return fmt.Errorf("salt size must be at least 16 bytes")
 	}
+
+	return cfg.ValidateKDF()
+}
+
+func (cfg KeyEncryptionConfig) ValidateKDF() error {
+	if cfg.Argon2Time == 0 {
+		return fmt.Errorf("argon2 time must be greater than 0")
+	}
+
+	if cfg.Argon2Memory == 0 {
+		return fmt.Errorf("argon2 memory must be greater than 0")
+	}
+
+	if cfg.Argon2Threads == 0 {
+		return fmt.Errorf("argon2 threads must be greater than 0")
+	}
+
+	if cfg.Argon2KeyLen != 32 {
+		return fmt.Errorf("argon2 key length must be 32 bytes")
+	}
+
+	return nil
 }

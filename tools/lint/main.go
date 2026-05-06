@@ -6,47 +6,46 @@ import (
 	"os/exec"
 )
 
-func runCommand(cmd string, args []string) error {
-	command := exec.Command(cmd, args...)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-	if err := command.Run(); err != nil {
-		return fmt.Errorf("error running %s %v: %v", cmd, args, err)
+func runCommand(name string, args ...string) error {
+	fmt.Printf("Running %s %v...\n", name, args)
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s %v: %w", name, args, err)
 	}
+
 	return nil
 }
 
 func main() {
-	fmt.Println("Running go fmt...")
-	if err := runCommand("go", []string{"fmt", "./..."}); err != nil {
-		fmt.Println(err)
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	commands := []struct {
+		name string
+		args []string
+	}{
+		{"gofumpt", []string{"-w", "."}},
+		{"go", []string{"fmt", "./..."}},
+		{"go", []string{"vet", "./..."}},
+		{"golangci-lint", []string{"run", "./..."}},
+		{"staticcheck", []string{"./..."}},
 	}
 
-	fmt.Println("Running go vet...")
-	if err := runCommand("go", []string{"vet", "./..."}); err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println("Running custom linters...")
-	if err := runCommand("golangci-lint", []string{"run", "./..."}); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := runCommand("go", []string{"install", "honnef.co/go/tools/cmd/staticcheck@latest"}); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := runCommand("staticcheck", []string{"./..."}); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := runCommand("go", []string{"install", "mvdan.cc/gofumpt@latest"}); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := runCommand("gofumpt", []string{"-l", "-w", "."}); err != nil {
-		fmt.Println(err)
+	for _, command := range commands {
+		if err := runCommand(command.name, command.args...); err != nil {
+			return err
+		}
 	}
 
 	fmt.Println("All checks completed!")
+	return nil
 }

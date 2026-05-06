@@ -8,25 +8,30 @@ import (
 )
 
 var (
-	// Using standard error for error logs and standard output for info and warning logs.
-	errorLogger = log.New(os.Stderr, "ERROR: ", log.LstdFlags|log.Lshortfile)
-	warnLogger  = log.New(os.Stdout, "WARN: ", log.LstdFlags)
-	infoLogger  = log.New(os.Stdout, "INFO: ", log.LstdFlags)
+	errorLogger = log.New(os.Stderr, "ERROR: ", 0)
+	warnLogger  = log.New(os.Stdout, "WARN: ", 0)
+	infoLogger  = log.New(os.Stdout, "INFO: ", 0)
 )
 
 // HaltOnErr logs an error and exits if the error is non-nil.
+// Prefer returning errors from packages and commands; use this only at the app boundary.
 func HaltOnErr(err error, messages ...string) {
 	if err == nil {
 		return
 	}
 
-	message := "An error occurred"
+	Error(err, messages...)
+	os.Exit(1)
+}
 
-	if len(messages) > 0 {
-		message = fmt.Sprintf("%s: %s", message, strings.Join(messages, " "))
+// Error logs an error.
+func Error(err error, messages ...string) {
+	if err == nil {
+		return
 	}
 
-	errorLogger.Fatalf("%s: %v", message, err)
+	message := joinMessage("An error occurred", messages...)
+	errorLogger.Printf("%s: %v", message, err)
 }
 
 // Info logs an informational message.
@@ -34,13 +39,25 @@ func Info(message string) {
 	infoLogger.Println(message)
 }
 
-// Warn logs a warning message along with an error if provided.
-func Warn(err error, messages ...string) {
-	if err != nil {
-		message := "A warning occurred"
-		if len(messages) > 0 {
-			message = fmt.Sprintf("%s: %s", message, strings.Join(messages, " "))
-		}
-		warnLogger.Printf("%s: %v", message, err)
+// Warn logs a warning message.
+func Warn(message string) {
+	warnLogger.Println(message)
+}
+
+// WarnErr logs a warning message with an error.
+func WarnErr(err error, messages ...string) {
+	if err == nil {
+		return
 	}
+
+	message := joinMessage("A warning occurred", messages...)
+	warnLogger.Printf("%s: %v", message, err)
+}
+
+func joinMessage(defaultMessage string, messages ...string) string {
+	if len(messages) == 0 {
+		return defaultMessage
+	}
+
+	return fmt.Sprintf("%s: %s", defaultMessage, strings.Join(messages, " "))
 }

@@ -5,65 +5,75 @@ import (
 	"os"
 
 	"golang.org/x/crypto/argon2"
-
 	"golang.org/x/term"
 )
 
 const maxPassphraseLen = 1024
 
-func DeriveKey(cryptoConfig KeyEncryptionConfig, salt []byte) ([]byte, error) {
-	if len(salt) == 0 {
-		return nil, fmt.Errorf("salt cannot be empty")
+func DeriveKey(cryptoConfig KeyEncryptionConfig, salt []byte, passphrase []byte) ([]byte, error) {
+	if err := cryptoConfig.ValidateKDF(); err != nil {
+		return nil, fmt.Errorf("invalid crypto config: %w", err)
 	}
 
-	passphrase, err := getPassphrase()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch passphrase: %v", err)
+	if len(salt) == 0 {
+		return nil, fmt.Errorf("salt cannot be empty")
 	}
 
 	if len(passphrase) == 0 {
 		return nil, fmt.Errorf("passphrase cannot be empty")
 	}
 
-	key := argon2.IDKey(passphrase, salt, cryptoConfig.Argon2Time, cryptoConfig.Argon2Memory*1024, cryptoConfig.Argon2Threads, cryptoConfig.Argon2KeyLen)
+	if len(passphrase) > maxPassphraseLen {
+		return nil, fmt.Errorf("passphrase too long: got %d bytes, max %d", len(passphrase), maxPassphraseLen)
+	}
 
-	for i := range passphrase {
-		passphrase[i] = 0
+	key := argon2.IDKey(
+		passphrase,
+		salt,
+		cryptoConfig.Argon2Time,
+		cryptoConfig.Argon2Memory*1024,
+		cryptoConfig.Argon2Threads,
+		cryptoConfig.Argon2KeyLen,
+	)
+
+	return key, nil
+}
+
+func DeriveKeyWithPassphrasePrompt(cryptoConfig KeyEncryptionConfig, salt []byte) ([]byte, error) {
+	passphrase, err := ReadPassphrase("Enter passphrase: ")
+	if err != nil {
+		return nil, err
+	}
+	defer zeroBytes(passphrase)
+
+	key, err := DeriveKey(cryptoConfig, salt, passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("derive key: %w", err)
 	}
 
 	return key, nil
 }
 
-func getPassphrase() (passphrase []byte, err error) {
-	fmt.Println("Enter passphrase:")
+func ReadPassphrase(prompt string) ([]byte, error) {
+	fmt.Fprint(os.Stderr, prompt)
 
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to set terminal to raw mode: %v", err)
-	}
-	defer func() {
-		if restoreErr := safeRestore(int(os.Stdin.Fd()), oldState); restoreErr != nil {
-			err = fmt.Errorf("failed to restore terminal: %v", restoreErr)
-		}
-	}()
+	passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
 
-	passphrase, err = term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read passphrase: %v", err)
+		return nil, fmt.Errorf("read passphrase: %w", err)
 	}
 
 	if len(passphrase) > maxPassphraseLen {
-		return nil, fmt.Errorf("passphrase too long (max %d bytes)", maxPassphraseLen)
+		zeroBytes(passphrase)
+		return nil, fmt.Errorf("passphrase too long: got %d bytes, max %d", len(passphrase), maxPassphraseLen)
 	}
 
 	return passphrase, nil
 }
 
-// safeRestore attempts to restore the terminal to its original state and logs an error if it fails.
-func safeRestore(fd int, state *term.State) error {
-	if err := term.Restore(fd, state); err != nil {
-		return fmt.Errorf("safe restoration error: %v", err)
+func zeroBytes(data []byte) {
+	for i := range data {
+		data[i] = 0
 	}
-
-	return nil
 }
