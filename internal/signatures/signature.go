@@ -14,10 +14,13 @@ import (
 	"brave-signer/internal/keys"
 )
 
-const signerInfoLengthSize = 4
+const (
+	signerInfoLengthSize = 4
+	maxSignerInfoLength  = uint64(math.MaxUint32)
+)
 
 type Signature struct {
-	Data    []byte
+	Raw     []byte
 	Package []byte
 }
 
@@ -36,7 +39,7 @@ func New(data []byte) (*Signature, error) {
 	}
 
 	return &Signature{
-		Data: data,
+		Raw: data,
 	}, nil
 }
 
@@ -45,19 +48,28 @@ func (s *Signature) GeneratePackage(signerInfo string) (*Signature, error) {
 		return nil, fmt.Errorf("signature is nil")
 	}
 
-	if len(s.Data) != ed25519.SignatureSize {
-		return nil, fmt.Errorf("invalid signature size: got %d bytes, want %d", len(s.Data), ed25519.SignatureSize)
+	if len(s.Raw) != ed25519.SignatureSize {
+		return nil, fmt.Errorf("invalid signature size: got %d bytes, want %d", len(s.Raw), ed25519.SignatureSize)
 	}
 
 	signerInfoBytes := []byte(signerInfo)
-	if len(signerInfoBytes) > math.MaxUint32 {
+	signerInfoLength := uint64(len(signerInfoBytes))
+
+	if signerInfoLength > maxSignerInfoLength {
 		return nil, fmt.Errorf("signer info is too large")
 	}
 
-	var buf bytes.Buffer
-	buf.Grow(signerInfoLengthSize + len(signerInfoBytes) + len(s.Data))
+	totalPackageLength := uint64(signerInfoLengthSize) + signerInfoLength + uint64(len(s.Raw))
+	maxInt := int(^uint(0) >> 1)
 
-	if err := binary.Write(&buf, binary.BigEndian, uint32(len(signerInfoBytes))); err != nil {
+	if totalPackageLength > uint64(maxInt) {
+		return nil, fmt.Errorf("signature package is too large")
+	}
+
+	var buf bytes.Buffer
+	buf.Grow(int(totalPackageLength))
+
+	if err := binary.Write(&buf, binary.BigEndian, uint32(signerInfoLength)); err != nil {
 		return nil, fmt.Errorf("write signer info length: %w", err)
 	}
 
@@ -65,7 +77,7 @@ func (s *Signature) GeneratePackage(signerInfo string) (*Signature, error) {
 		return nil, fmt.Errorf("write signer info: %w", err)
 	}
 
-	if _, err := buf.Write(s.Data); err != nil {
+	if _, err := buf.Write(s.Raw); err != nil {
 		return nil, fmt.Errorf("write signature: %w", err)
 	}
 
@@ -105,7 +117,7 @@ func (s *Signature) VerifyDigest(digest []byte, publicKey *keys.PublicKey) ([]by
 		return nil, fmt.Errorf("public key is nil")
 	}
 
-	signerInfo, signatureBytes, err := parsePackage(s.Data)
+	signerInfo, signatureBytes, err := parsePackage(s.Raw)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +142,7 @@ func LoadRawFromSIGFile(initialFilePath string) (*Signature, error) {
 	}
 
 	return &Signature{
-		Data: data,
+		Raw: data,
 	}, nil
 }
 
@@ -150,7 +162,9 @@ func parsePackage(data []byte) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("read signer info length: %w", err)
 	}
 
-	if uint64(signerInfoLength) > uint64(buf.Len()-ed25519.SignatureSize) {
+	payloadLength := buf.Len() - ed25519.SignatureSize
+
+	if uint64(signerInfoLength) > uint64(payloadLength) {
 		return nil, nil, fmt.Errorf(
 			"%w: signer info length %d exceeds package payload",
 			ErrMalformedPackage,
@@ -158,7 +172,7 @@ func parsePackage(data []byte) ([]byte, []byte, error) {
 		)
 	}
 
-	signerInfo := make([]byte, signerInfoLength)
+	signerInfo := make([]byte, int(signerInfoLength))
 	if _, err := io.ReadFull(buf, signerInfo); err != nil {
 		return nil, nil, fmt.Errorf("read signer info: %w", err)
 	}
