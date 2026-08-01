@@ -51,6 +51,6 @@ jobs:
         run: echo "CHECKSUMS_FILE=$(ls dist/*_checksums.txt)" >> "$GITHUB_ENV"
 
       - name: Generate artifact attestation
-        uses: actions/attest@v4.1.0
+        uses: actions/attest@v4.2.0
         with:
           subject-checksums: ${{ env.CHECKSUMS_FILE }}
